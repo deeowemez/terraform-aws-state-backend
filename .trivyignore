@@ -1,0 +1,14 @@
+# Each suppression here is a CALLER decision that the module exposes as a variable, not a
+# weakness in the module. Anything that is genuinely the module's responsibility should be
+# fixed rather than listed.
+
+# S3 bucket does not have logging enabled.
+# Exposed as var.access_logging. Needs a caller-owned target bucket in the same region,
+# which this module cannot create without that bucket needing a log bucket of its own.
+AVD-AWS-0089
+
+# S3 encryption should use a customer-managed key.
+# Exposed as var.kms_key_arn. The AWS-managed aws/s3 default needs no key policy and no
+# extra IAM permissions; a customer-managed key adds a key policy every Terraform role must
+# be written into, which is the caller's trade-off to make.
+AVD-AWS-0132

@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fmt:
+    name: terraform fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive -diff
+
+  validate:
+    name: validate (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - "."
+          - "examples/simple"
+          - "examples/complete"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      # No AWS credentials: -backend=false plus validate catches every type and reference
+      # error without touching an account.
+      - name: terraform init
+        working-directory: ${{ matrix.dir }}
+        run: terraform init -backend=false -input=false
+
+      - name: terraform validate
+        working-directory: ${{ matrix.dir }}
+        run: terraform validate
+
+  tflint:
+    name: tflint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+      - run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: tflint --recursive --format compact
+
+  security:
+    name: trivy config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          trivy-config: ""
+
+  docs:
+    name: terraform-docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-docs/gh-actions@v1
+        with:
+          working-dir: .,examples/simple,examples/complete
+          output-file: README.md
+          output-method: inject
+          fail-on-diff: true
